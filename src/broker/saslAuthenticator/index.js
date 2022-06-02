@@ -1,8 +1,8 @@
 const { requests, lookup } = require('../../protocol/requests')
 const apiKeys = require('../../protocol/requests/apiKeys')
 const plainAuthenticatorProvider = require('./plain')
-const SCRAM256Authenticator = require('./scram256')
-const SCRAM512Authenticator = require('./scram512')
+const scram256AuthenticatorProvider = require('./scram256')
+const scram512AuthenticatorProvider = require('./scram512')
 const awsIAMAuthenticatorProvider = require('./awsIam')
 const oauthBearerAuthenticatorProvider = require('./oauthBearer')
 const { KafkaJSSASLAuthenticationError } = require('../../errors')
@@ -11,14 +11,10 @@ const BUILT_IN_AUTHENTICATION_PROVIDERS = {
   AWS: awsIAMAuthenticatorProvider,
   PLAIN: plainAuthenticatorProvider,
   OAUTHBEARER: oauthBearerAuthenticatorProvider,
+  'SCRAM-SHA-256': scram256AuthenticatorProvider,
+  'SCRAM-SHA-512': scram512AuthenticatorProvider,
 }
 
-const OLD_AUTHENTICATORS = {
-  'SCRAM-SHA-256': SCRAM256Authenticator,
-  'SCRAM-SHA-512': SCRAM512Authenticator,
-}
-
-const OLD_SUPPORTED_MECHANISMS = Object.keys(OLD_AUTHENTICATORS)
 const UNLIMITED_SESSION_LIFETIME = '0'
 
 module.exports = class SASLAuthenticator {
@@ -66,23 +62,18 @@ module.exports = class SASLAuthenticator {
       return this.connection.sendAuthRequest({ request, response, authExpectResponse })
     }
 
-    if (OLD_SUPPORTED_MECHANISMS.includes(mechanism)) {
-      const Authenticator = OLD_AUTHENTICATORS[mechanism]
-      await new Authenticator(this.connection, this.logger, saslAuthenticate).authenticate()
-    } else {
-      if (Object.keys(BUILT_IN_AUTHENTICATION_PROVIDERS).includes(mechanism)) {
-        this.connection.sasl.authenticationProvider = BUILT_IN_AUTHENTICATION_PROVIDERS[mechanism](
-          this.connection.sasl
-        )
-      }
-      await this.connection.sasl
-        .authenticationProvider(
-          this.connection.host,
-          this.connection.port,
-          this.logger.namespace(`SaslAuthenticator-${mechanism}`),
-          saslAuthenticate
-        )
-        .authenticate()
+    if (Object.keys(BUILT_IN_AUTHENTICATION_PROVIDERS).includes(mechanism)) {
+      this.connection.sasl.authenticationProvider = BUILT_IN_AUTHENTICATION_PROVIDERS[mechanism](
+        this.connection.sasl
+      )
     }
+    await this.connection.sasl
+      .authenticationProvider(
+        this.connection.host,
+        this.connection.port,
+        this.logger.namespace(`SaslAuthenticator-${mechanism}`),
+        saslAuthenticate
+      )
+      .authenticate()
   }
 }
