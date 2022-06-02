@@ -1,21 +1,24 @@
 const { requests, lookup } = require('../../protocol/requests')
 const apiKeys = require('../../protocol/requests/apiKeys')
-const PlainAuthenticator = require('./plain')
+const plainAuthenticatorProvider = require('./plain')
 const SCRAM256Authenticator = require('./scram256')
 const SCRAM512Authenticator = require('./scram512')
 const AWSIAMAuthenticator = require('./awsIam')
 const OAuthBearerAuthenticator = require('./oauthBearer')
 const { KafkaJSSASLAuthenticationError } = require('../../errors')
 
-const AUTHENTICATORS = {
-  PLAIN: PlainAuthenticator,
+const BUILT_IN_AUTHENTICATORS = {
+  PLAIN: plainAuthenticatorProvider,
+}
+
+const OLD_AUTHENTICATORS = {
   'SCRAM-SHA-256': SCRAM256Authenticator,
   'SCRAM-SHA-512': SCRAM512Authenticator,
   AWS: AWSIAMAuthenticator,
   OAUTHBEARER: OAuthBearerAuthenticator,
 }
 
-const SUPPORTED_MECHANISMS = Object.keys(AUTHENTICATORS)
+const OLD_SUPPORTED_MECHANISMS = Object.keys(OLD_AUTHENTICATORS)
 const UNLIMITED_SESSION_LIFETIME = '0'
 
 module.exports = class SASLAuthenticator {
@@ -63,10 +66,15 @@ module.exports = class SASLAuthenticator {
       return this.connection.sendAuthRequest({ request, response, authExpectResponse })
     }
 
-    if (SUPPORTED_MECHANISMS.includes(mechanism)) {
-      const Authenticator = AUTHENTICATORS[mechanism]
+    if (OLD_SUPPORTED_MECHANISMS.includes(mechanism)) {
+      const Authenticator = OLD_AUTHENTICATORS[mechanism]
       await new Authenticator(this.connection, this.logger, saslAuthenticate).authenticate()
     } else {
+      if (Object.keys(BUILT_IN_AUTHENTICATORS).includes(mechanism)) {
+        this.connection.sasl.authenticationProvider = BUILT_IN_AUTHENTICATORS[mechanism](
+          this.connection.sasl
+        )
+      }
       await this.connection.sasl
         .authenticationProvider(
           this.connection.host,
