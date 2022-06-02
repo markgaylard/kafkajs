@@ -4,18 +4,18 @@ const plainAuthenticatorProvider = require('./plain')
 const SCRAM256Authenticator = require('./scram256')
 const SCRAM512Authenticator = require('./scram512')
 const awsIAMAuthenticatorProvider = require('./awsIam')
-const OAuthBearerAuthenticator = require('./oauthBearer')
+const oauthBearerAuthenticatorProvider = require('./oauthBearer')
 const { KafkaJSSASLAuthenticationError } = require('../../errors')
 
 const BUILT_IN_AUTHENTICATION_PROVIDERS = {
-  PLAIN: plainAuthenticatorProvider,
   AWS: awsIAMAuthenticatorProvider,
+  PLAIN: plainAuthenticatorProvider,
+  OAUTHBEARER: oauthBearerAuthenticatorProvider,
 }
 
 const OLD_AUTHENTICATORS = {
   'SCRAM-SHA-256': SCRAM256Authenticator,
   'SCRAM-SHA-512': SCRAM512Authenticator,
-  OAUTHBEARER: OAuthBearerAuthenticator,
 }
 
 const OLD_SUPPORTED_MECHANISMS = Object.keys(OLD_AUTHENTICATORS)
